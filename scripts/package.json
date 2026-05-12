@@ -1,0 +1,14 @@
+{
+  "name": "solvex-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "compile":       "bash 1_compile.sh",
+    "setup":         "bash 2_setup.sh",
+    "generate-proof": "node 3_generate_proof.js"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "snarkjs":   "^0.7.4"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+artifacts/
+frontend/.next/
+frontend/public/sudoku.wasm
+frontend/public/sudoku_final.zkey
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/.env
+frontend/.env
+scripts/pot14_final.ptau
