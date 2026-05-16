@@ -31,7 +31,6 @@ export default function Home() {
           abi:     BOUNTY_MARKET_ABI,
           functionName: "nextBountyId",
         }) as bigint;
-
         const ids = Array.from({ length: Number(total) }, (_, i) => BigInt(i));
         const results = await Promise.all(
           ids.map(async (id) => {
@@ -68,102 +67,75 @@ export default function Home() {
     : bounties.filter((b) => b.difficulty === filter);
 
   return (
-    <div className="space-y-14">
+    <div style={{ display: "flex", flexDirection: "column", gap: "56px" }}>
 
-      {/* ── Hero ── */}
-      <section className="pt-8">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-8">
-          <div>
-            <p className="text-[11px] tracking-[0.2em] text-[#818cf8] uppercase font-mono mb-4">
-              Arc Testnet · Groth16 ZK
-            </p>
-            <h1 className="text-4xl sm:text-[3.25rem] font-bold text-white leading-[1.1] tracking-tight">
-              ZK Puzzle<br />Bounty Market
-            </h1>
-            <p className="mt-5 text-slate-400 text-sm leading-relaxed max-w-md">
-              Post Sudoku puzzles with on-chain bounties. Solvers generate a
-              Groth16 proof in-browser — the solution is never revealed.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <ConnectButton />
-            <a
-              href="/post"
-              className="px-4 py-2 rounded-lg bg-[#4f46e5] hover:bg-[#4338ca] text-white text-sm font-semibold transition-colors"
-            >
-              + Post Puzzle
-            </a>
-          </div>
+      {/* Hero */}
+      <section style={{ paddingTop: "24px" }}>
+        <p style={{ fontSize: "11px", letterSpacing: "0.2em", color: "#818cf8", textTransform: "uppercase", fontFamily: "var(--font-mono), monospace", marginBottom: "16px" }}>
+          Arc Testnet · Groth16 ZK
+        </p>
+        <h1 style={{ fontSize: "clamp(2.5rem, 5vw, 3.5rem)", fontWeight: 700, color: "#f1f5f9", lineHeight: 1.1, letterSpacing: "-1.5px", marginBottom: "20px", fontFamily: "var(--font-mono), monospace" }}>
+          ZK Puzzle<br />Bounty Market
+        </h1>
+        <p style={{ color: "#64748b", fontSize: "15px", lineHeight: 1.7, maxWidth: "480px", marginBottom: "32px" }}>
+          Post Sudoku puzzles with on-chain bounties. Solvers generate a Groth16 proof in-browser — the solution is never revealed.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <ConnectButton />
+          <a href="/post" style={{ padding: "10px 20px", borderRadius: "8px", background: "#4f46e5", color: "#fff", fontSize: "14px", fontWeight: 600, textDecoration: "none", display: "inline-block" }}>
+            + Post Puzzle
+          </a>
         </div>
       </section>
 
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Stat cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
         {[
-          {
-            label: "Open Bounties",
-            value: loading ? "—" : String(open.length),
-          },
-          {
-            label: "Solved",
-            value: loading ? "—" : String(solved.length),
-          },
-          {
-            label: "Total Prizes",
-            value: loading
-              ? "—"
-              : `${parseFloat(formatEther(totalPool)).toFixed(3)} ETH`,
-          },
+          { label: "Open Bounties", value: loading ? "—" : String(open.length) },
+          { label: "Solved",        value: loading ? "—" : String(solved.length) },
+          { label: "Total Prizes",  value: loading ? "—" : `${parseFloat(formatEther(totalPool)).toFixed(3)} ETH` },
         ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl bg-[#0e1528] border-hair px-6 py-5"
-          >
-            <div className="font-mono text-2xl font-bold text-white">
-              {s.value}
-            </div>
-            <div className="mt-1.5 text-[11px] uppercase tracking-widest text-slate-500">
-              {s.label}
-            </div>
+          <div key={s.label} style={{ background: "#0e1528", border: "0.5px solid rgba(255,255,255,0.07)", borderRadius: "12px", padding: "20px 24px" }}>
+            <div style={{ fontSize: "28px", fontWeight: 700, color: "#f1f5f9", fontFamily: "var(--font-mono), monospace" }}>{s.value}</div>
+            <div style={{ marginTop: "6px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.15em", color: "#475569" }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Filter + grid ── */}
+      {/* Filter + grid */}
       <div>
-        {/* Filter tabs */}
-        <div className="flex gap-2 mb-7">
+        <div style={{ display: "flex", gap: "6px", marginBottom: "28px" }}>
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value as 0 | 1 | 2 | 3)}
-              className={[
-                "px-3.5 py-1.5 rounded-md text-[11px] font-semibold tracking-widest uppercase transition-colors",
-                filter === f.value
-                  ? "bg-[#4f46e5] text-white"
-                  : "border-hair text-slate-500 hover:text-slate-300",
-              ].join(" ")}
+              style={{
+                padding: "6px 16px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+                border: filter === f.value ? "none" : "0.5px solid rgba(255,255,255,0.08)",
+                background: filter === f.value ? "#4f46e5" : "transparent",
+                color: filter === f.value ? "#fff" : "#64748b",
+              }}
             >
               {f.label}
             </button>
           ))}
         </div>
 
-        {/* Grid */}
         {loading ? (
-          <div className="py-28 text-center font-mono text-sm text-slate-600">
-            Loading…
-          </div>
+          <div style={{ padding: "80px 0", textAlign: "center", color: "#334155", fontFamily: "var(--font-mono), monospace", fontSize: "14px" }}>Loading…</div>
         ) : visible.length === 0 ? (
-          <div className="py-28 text-center font-mono text-sm text-slate-600">
+          <div style={{ padding: "80px 0", textAlign: "center", color: "#334155", fontFamily: "var(--font-mono), monospace", fontSize: "14px" }}>
             No bounties yet.{" "}
-            <a href="/post" className="text-[#818cf8] hover:underline">
-              Post the first one.
-            </a>
+            <a href="/post" style={{ color: "#818cf8" }}>Post the first one.</a>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "12px" }}>
             {visible.map((b) => (
               <BountyCard key={b.id.toString()} bounty={b} />
             ))}
