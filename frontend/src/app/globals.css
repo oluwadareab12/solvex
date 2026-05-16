@@ -3,16 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --background: #0f172a;
-  --foreground: #f8fafc;
+  --bg-base:    #0a0f1e;
+  --bg-surface: #0e1528;
+  --indigo:     #4f46e5;
+  --indigo-lt:  #818cf8;
+  --border:     rgba(255, 255, 255, 0.06);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-base);
+  color: #e2e8f0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+h1, h2, h3 {
+  font-family: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+}
+
+::-webkit-scrollbar        { width: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #1e293b; border-radius: 2px; }
+
+.border-hair {
+  border: 0.5px solid var(--border);
+}
