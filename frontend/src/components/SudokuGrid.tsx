@@ -8,9 +8,10 @@ interface Props {
   onChange?: (idx: number, val: number) => void;
   readonly?: boolean;
   highlight?: Set<number>;      // cell indices to highlight in red (conflicts)
+  revealed?: Set<number>;       // cell indices to highlight in indigo (hint flash)
 }
 
-export function SudokuGrid({ puzzle, solution, onChange, readonly, highlight }: Props) {
+export function SudokuGrid({ puzzle, solution, onChange, readonly, highlight, revealed }: Props) {
   const handleKey = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
       const n = parseInt(e.key, 10);
@@ -32,9 +33,10 @@ export function SudokuGrid({ puzzle, solution, onChange, readonly, highlight }: 
       {Array.from({ length: 81 }, (_, i) => {
         const row  = Math.floor(i / 9);
         const col  = i % 9;
-        const isClue    = puzzle[i] !== 0;
-        const value     = isClue ? puzzle[i] : solution[i];
+        const isClue     = puzzle[i] !== 0;
+        const value      = isClue ? puzzle[i] : solution[i];
         const isConflict = highlight?.has(i) ?? false;
+        const isRevealed = revealed?.has(i) ?? false;
 
         const borderR = col === 2 || col === 5 ? "border-r-2 border-r-white/40" : "border-r border-r-white/10";
         const borderB = row === 2 || row === 5 ? "border-b-2 border-b-white/40" : "border-b border-b-white/10";
@@ -45,16 +47,18 @@ export function SudokuGrid({ puzzle, solution, onChange, readonly, highlight }: 
             className={[
               "w-10 h-10 flex items-center justify-center",
               borderR, borderB,
-              isClue      ? "bg-slate-700"  : "bg-slate-800",
-              isConflict  ? "bg-red-900/60" : "",
+              isClue      ? "bg-slate-700"      : "bg-slate-800",
+              isConflict  ? "bg-red-900/60"    : "",
+              isRevealed  ? "bg-indigo-900/60" : "",
             ].join(" ")}
           >
             {isClue || readonly ? (
               <span
                 className={[
                   "text-base font-bold select-none",
-                  isClue      ? "text-indigo-300" : "text-white",
-                  isConflict  ? "text-red-400"    : "",
+                  isClue      ? "text-indigo-300"  : "text-white",
+                  isConflict  ? "text-red-400"     : "",
+                  isRevealed  ? "text-indigo-300"  : "",
                 ].join(" ")}
               >
                 {value !== 0 ? value : ""}
