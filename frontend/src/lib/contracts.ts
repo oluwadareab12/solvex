@@ -2,7 +2,7 @@ import { defineChain } from "viem";
 
 // Arc Testnet
 export const arcTestnet = defineChain({
-  id: 1244,
+  id: 5042002,
   name: "Arc Testnet",
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
   rpcUrls: {

@@ -21,6 +21,8 @@ contract StubVerifier is IVerifier {
 }
 
 contract BountyMarketTest is Test {
+    receive() external payable {}
+
     BountyMarket market;
     SolverNFT    nft;
     StubVerifier verifierPass;
@@ -38,7 +40,7 @@ contract BountyMarketTest is Test {
     function setUp() public {
         // Predict market address for SolverNFT constructor
         uint256 nonce = vm.getNonce(address(this));
-        address futureMarket = _computeAddress(address(this), nonce + 2);
+        address futureMarket = _computeAddress(address(this), nonce + 3);
 
         verifierPass = new StubVerifier(true);
         verifierFail = new StubVerifier(false);
