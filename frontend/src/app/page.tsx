@@ -5,6 +5,7 @@ import { usePublicClient } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { formatEther } from "viem";
 import { BountyCard } from "@/components/BountyCard";
+import { BridgeModal } from "@/components/BridgeModal";
 import { BOUNTY_MARKET_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
 import type { BountyData } from "@/lib/types";
 
@@ -17,9 +18,10 @@ const FILTERS = [
 
 export default function Home() {
   const client = usePublicClient();
-  const [bounties, setBounties] = useState<BountyData[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState<0 | 1 | 2 | 3>(0);
+  const [bounties,    setBounties]    = useState<BountyData[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [filter,      setFilter]      = useState<0 | 1 | 2 | 3>(0);
+  const [bridgeOpen,  setBridgeOpen]  = useState(false);
 
   useEffect(() => {
     if (!client) return;
@@ -85,7 +87,14 @@ export default function Home() {
           <a href="/post" style={{ padding: "10px 20px", borderRadius: "8px", background: "#4f46e5", color: "#fff", fontSize: "14px", fontWeight: 600, textDecoration: "none", display: "inline-block" }}>
             + Post Puzzle
           </a>
+          <button
+            onClick={() => setBridgeOpen(true)}
+            style={{ padding: "10px 20px", borderRadius: "8px", background: "transparent", color: "#818cf8", fontSize: "14px", fontWeight: 600, border: "0.5px solid rgba(129,140,248,0.4)", cursor: "pointer" }}
+          >
+            Bridge USDC
+          </button>
         </div>
+        <BridgeModal isOpen={bridgeOpen} onClose={() => setBridgeOpen(false)} />
       </section>
 
       {/* Stat cards */}

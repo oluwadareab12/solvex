@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@circle-fin/bridge-kit": "^1.10.0",
     "@circle-fin/x402-batching": "^3.0.4",
     "@rainbow-me/rainbowkit": "^2.2.0",
     "@tanstack/react-query": "^5.51.1",
