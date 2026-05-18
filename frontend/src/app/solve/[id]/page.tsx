@@ -2,13 +2,13 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, usePublicClient, useWriteContract, useWaitForTransactionReceipt, useSendTransaction } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { formatEther } from "viem";
 import { SudokuGrid } from "@/components/SudokuGrid";
 import { generateProof, validateSudoku } from "@/lib/proof";
 import { BOUNTY_MARKET_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
-import { getGatewayClient } from "@/lib/gatewayClient";
+import { buyHintOnChain } from "@/lib/gatewayClient";
 import type { BountyData } from "@/lib/types";
 
 const DIFF_LABEL = ["", "Easy", "Medium", "Hard"];
@@ -36,6 +36,7 @@ export default function SolvePage() {
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const { sendTransactionAsync } = useSendTransaction();
 
   // Load bounty + puzzle from chain
   useEffect(() => {
@@ -99,9 +100,8 @@ export default function SolvePage() {
     setHintLoading((prev) => new Set(prev).add(cellIdx));
     setErrMsg("");
     try {
-      const gc = getGatewayClient();
-      const result = await gc.pay<{ value: number }>(`/api/hint/${id}/${cellIdx}`);
-      const val = result.data.value;
+      const result = await buyHintOnChain(cellIdx, id, sendTransactionAsync, client!.waitForTransactionReceipt.bind(client));
+      const val = result.value;
 
       // Fill the cell
       handleCell(cellIdx, val);

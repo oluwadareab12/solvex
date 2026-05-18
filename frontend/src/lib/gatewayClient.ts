@@ -1,17 +1,19 @@
-import { GatewayClient } from "@circle-fin/x402-batching/client";
+const SELLER = "0xB4D0D085563695872a5DC2f7d2dC0DC9daf1C199" as const;
 
-let _client: GatewayClient | null = null;
+export async function buyHintOnChain(
+  cellIdx: number,
+  bountyId: string,
+  sendTransactionAsync: Function,
+  waitForTransactionReceipt: Function
+): Promise<{ value: number }> {
+  const hash = await sendTransactionAsync({ to: SELLER, value: 1000n });
+  await waitForTransactionReceipt({ hash });
 
-export function getGatewayClient(): GatewayClient {
-  if (_client) return _client;
-
-  const privateKey = process.env.NEXT_PUBLIC_GATEWAY_PRIVATE_KEY;
-  if (!privateKey) throw new Error("NEXT_PUBLIC_GATEWAY_PRIVATE_KEY is not set");
-
-  _client = new GatewayClient({
-    chain: "arcTestnet",
-    privateKey: privateKey as `0x${string}`,
-  });
-
-  return _client;
+  const url = `${window.location.origin}/api/hint/${bountyId}/${cellIdx}?txHash=${hash}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error ?? "Hint fetch failed");
+  }
+  return res.json();
 }

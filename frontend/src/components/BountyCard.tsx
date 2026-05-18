@@ -1,17 +1,11 @@
 "use client";
-
 import Link from "next/link";
 import { formatEther } from "viem";
 import type { BountyData } from "@/lib/types";
 
 const DIFF_LABEL = ["", "Easy", "Medium", "Hard"] as const;
-
-const DIFF_STYLE = [
-  "",
-  "text-teal-400  bg-teal-400/10  border-teal-400/20",
-  "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  "text-red-400   bg-red-400/10   border-red-400/20",
-] as const;
+const DIFF_COLOR = ["", "#2dd4bf", "#fbbf24", "#f87171"] as const;
+const DIFF_BG    = ["", "rgba(45,212,191,0.08)", "rgba(251,191,36,0.08)", "rgba(248,113,113,0.08)"] as const;
 
 function timeLeft(deadline: bigint): string {
   const secs = Number(deadline) - Math.floor(Date.now() / 1000);
@@ -29,46 +23,104 @@ export function BountyCard({ bounty }: { bounty: BountyData }) {
   const pool    = parseFloat(formatEther(bounty.pool));
 
   return (
-    <Link
-      href={`/solve/${bounty.id}`}
-      className="group block rounded-xl bg-[#0e1528] border-hair hover:border-[rgba(79,70,229,0.4)] transition-all duration-200 p-5"
-    >
-      {/* Top row: title + difficulty */}
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <h3 className="font-mono text-sm font-semibold text-white group-hover:text-[#818cf8] transition-colors leading-snug line-clamp-2">
-          {bounty.title}
-        </h3>
-        <span className={`shrink-0 text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded border ${DIFF_STYLE[diff]}`}>
-          {DIFF_LABEL[diff]}
-        </span>
-      </div>
-
-      {/* Pool amount */}
-      <div className="mb-4">
-        <div className="font-mono text-2xl font-bold text-[#818cf8]">
-          {pool.toFixed(3)}
-          <span className="text-sm font-normal text-slate-500 ml-1.5">ETH</span>
-        </div>
-        <div className="text-[10px] uppercase tracking-widest text-slate-600 mt-0.5">
-          Prize pool
-        </div>
-      </div>
-
-      {/* Bottom row: status + creator */}
-      <div className="flex items-center justify-between">
-        {bounty.claimed ? (
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-teal-400 bg-teal-400/10 border border-teal-400/20 px-2 py-0.5 rounded">
-            Solved
+    <Link href={`/solve/${bounty.id}`} style={{ textDecoration: "none" }}>
+      <div
+        style={{
+          background: "#0e1528",
+          border: "0.5px solid rgba(255,255,255,0.07)",
+          borderRadius: "12px",
+          padding: "20px",
+          cursor: "pointer",
+          transition: "border-color 0.15s, transform 0.15s",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(99,102,241,0.4)";
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.07)";
+          (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+        }}
+      >
+        {/* Top row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+          <h3 style={{
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: "#f1f5f9",
+            lineHeight: 1.4,
+            margin: 0,
+            flex: 1,
+          }}>
+            {bounty.title}
+          </h3>
+          <span style={{
+            flexShrink: 0,
+            fontSize: "10px",
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            padding: "3px 10px",
+            borderRadius: "99px",
+            color: DIFF_COLOR[diff],
+            background: DIFF_BG[diff],
+            border: `0.5px solid ${DIFF_COLOR[diff]}44`,
+          }}>
+            {DIFF_LABEL[diff]}
           </span>
-        ) : (
-          <span className={`text-[10px] font-mono ${expired ? "text-red-400" : "text-slate-400"}`}>
-            {expired ? "Expired" : `${timeLeft(bounty.deadline)} left`}
-          </span>
-        )}
+        </div>
 
-        <span className="font-mono text-[10px] text-slate-600">
-          #{bounty.id.toString()} · {bounty.creator.slice(0, 6)}…{bounty.creator.slice(-4)}
-        </span>
+        {/* Pool */}
+        <div>
+          <div style={{
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: "26px",
+            fontWeight: 700,
+            color: "#818cf8",
+            lineHeight: 1,
+          }}>
+            {pool.toFixed(3)}
+            <span style={{ fontSize: "13px", fontWeight: 400, color: "#475569", marginLeft: "6px" }}>ETH</span>
+          </div>
+          <div style={{ fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: "#334155", marginTop: "4px" }}>
+            Prize pool
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: "0.5px", background: "rgba(255,255,255,0.05)" }} />
+
+        {/* Bottom row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {bounty.claimed ? (
+            <span style={{
+              fontSize: "10px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em",
+              color: "#2dd4bf", background: "rgba(45,212,191,0.1)",
+              border: "0.5px solid rgba(45,212,191,0.2)", padding: "3px 10px", borderRadius: "99px",
+            }}>
+              ✓ Solved
+            </span>
+          ) : (
+            <span style={{
+              fontSize: "11px",
+              fontFamily: "var(--font-mono), monospace",
+              color: expired ? "#f87171" : "#64748b",
+            }}>
+              {expired ? "Expired" : `⏱ ${timeLeft(bounty.deadline)} left`}
+            </span>
+          )}
+          <span style={{
+            fontFamily: "var(--font-mono), monospace",
+            fontSize: "10px",
+            color: "#334155",
+          }}>
+            #{bounty.id.toString()} · {bounty.creator.slice(0, 6)}…{bounty.creator.slice(-4)}
+          </span>
+        </div>
       </div>
     </Link>
   );

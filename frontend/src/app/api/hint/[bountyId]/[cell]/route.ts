@@ -1,41 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createGatewayMiddleware } from "@circle-fin/x402-batching/server";
-import { solutions } from "@/app/api/solutions/route";
-
-const gateway = createGatewayMiddleware({
-  sellerAddress: process.env.CIRCLE_SELLER_ADDRESS!,
-  networks: ["eip155:5042002"],
+import { createPublicClient, http, defineChain } from "viem";
+import { Redis } from "@upstash/redis";
+const kv = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
 });
 
-// $0.001 USDC — Arc Testnet uses USDC as native token (6 decimals: 0.001 × 10^6 = 1000)
-const PRICE = "1000";
+const arcTestnet = defineChain({
+  id: 5042002,
+  name: "Arc Testnet",
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 6 },
+  rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
+});
 
-function paymentRequired(url: string, cellIdx: number, bountyId: string) {
-  return NextResponse.json(
-    {
-      x402Version: 1,
-      error: "Payment Required",
-      accepts: [
-        {
-          scheme:             "exact",
-          network:            "eip155:5042002",
-          maxAmountRequired:  PRICE,
-          resource:           url,
-          description:        `Hint for cell ${cellIdx} — bounty #${bountyId}`,
-          mimeType:           "application/json",
-          payTo:              process.env.CIRCLE_SELLER_ADDRESS,
-          maxTimeoutSeconds:  300,
-          asset:              "native",
-          extra:              { name: "USDC", version: "2" },
-        },
-      ],
-    },
-    {
-      status: 402,
-      headers: { "WWW-Authenticate": "X-PAYMENT" },
-    }
-  );
-}
+const publicClient = createPublicClient({
+  chain: arcTestnet,
+  transport: http("https://rpc.testnet.arc.network"),
+});
 
 export async function GET(
   req: NextRequest,
@@ -43,29 +24,31 @@ export async function GET(
 ) {
   const cellIdx = parseInt(params.cell, 10);
   if (isNaN(cellIdx) || cellIdx < 0 || cellIdx > 80)
-    return NextResponse.json({ error: "cell must be 0–80" }, { status: 400 });
+    return NextResponse.json({ error: "cell must be 0-80" }, { status: 400 });
 
-  const xPayment = req.headers.get("x-payment");
+  const txHash = req.nextUrl.searchParams.get("txHash");
 
-  if (!xPayment) return paymentRequired(req.url, cellIdx, params.bountyId);
+  if (!txHash)
+    return NextResponse.json({ error: "Payment required", price: "0.001 USDC" }, { status: 402 });
 
-  const result = await gateway.verify(xPayment);
-  if (!result.valid)
-    return NextResponse.json(
-      { error: result.error ?? "Payment verification failed" },
-      { status: 402 }
-    );
+  try {
+    const tx = await publicClient.getTransaction({ hash: txHash as `0x${string}` });
 
-  const solution = solutions.get(params.bountyId);
-  if (!solution)
-    return NextResponse.json(
-      { error: "No solution stored for this bounty" },
-      { status: 404 }
-    );
+    const sellerAddress = process.env.CIRCLE_SELLER_ADDRESS!;
+    const valid =
+      tx.to?.toLowerCase() === sellerAddress.toLowerCase() &&
+      tx.value >= 1000n &&
+      tx.blockNumber !== null;
 
-  const value = solution[cellIdx];
-  if (!value)
-    return NextResponse.json({ error: "Cell is empty in solution" }, { status: 400 });
+    if (!valid)
+      return NextResponse.json({ error: "Invalid or unconfirmed payment" }, { status: 402 });
+  } catch {
+    return NextResponse.json({ error: "Invalid or unconfirmed payment" }, { status: 402 });
+  }
 
-  return NextResponse.json({ value });
+  const raw = await kv.get<string>(`solution:${params.bountyId}`);
+  if (!raw) return NextResponse.json({ error: "No solution stored for this bounty" }, { status: 404 });
+
+  const solution: number[] = typeof raw === "string" ? JSON.parse(raw) : raw;
+  return NextResponse.json({ value: solution[cellIdx] });
 }

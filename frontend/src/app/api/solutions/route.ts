@@ -1,31 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Shared in-memory store — persists per server process (testnet only)
-export const solutions = new Map<string, number[]>();
+import { Redis } from "@upstash/redis";
+const kv = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+});
 
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { bountyId: string; solution: number[] };
-  const { bountyId, solution } = body;
+  const { bountyId, solution } = await req.json() as { bountyId: string; solution: number[] };
+  if (!bountyId || !Array.isArray(solution) || solution.length !== 81)
+    return NextResponse.json({ error: "bountyId + 81-element solution required" }, { status: 400 });
 
-  if (!bountyId || !Array.isArray(solution) || solution.length !== 81) {
-    return NextResponse.json(
-      { error: "bountyId (string) and solution (81-element number[]) required" },
-      { status: 400 }
-    );
-  }
-
-  solutions.set(String(bountyId), solution);
+  await kv.set(`solution:${bountyId}`, JSON.stringify(solution));
   return NextResponse.json({ ok: true });
 }
 
 export async function GET(req: NextRequest) {
   const bountyId = req.nextUrl.searchParams.get("bountyId");
-  if (!bountyId)
-    return NextResponse.json({ error: "Missing bountyId" }, { status: 400 });
+  if (!bountyId) return NextResponse.json({ error: "Missing bountyId" }, { status: 400 });
 
-  const solution = solutions.get(bountyId);
-  if (!solution)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const raw = await kv.get<string>(`solution:${bountyId}`);
+  if (!raw) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const solution = typeof raw === "string" ? JSON.parse(raw) : raw;
   return NextResponse.json({ solution });
 }
