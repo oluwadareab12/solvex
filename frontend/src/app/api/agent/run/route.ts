@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createPublicClient, http, defineChain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { GatewayClient } from "@circle-fin/x402-batching/client";
+import { Redis } from "@upstash/redis";
+
+const kv = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+});
 
 const arcTestnet = defineChain({
   id: 5042002,
@@ -176,6 +182,9 @@ export async function POST() {
         // Step 5 — validate
         if (!isValidSudoku(grid)) { emit("error", "Solution failed validation — grid is not a correct Sudoku."); controller.close(); return; }
         emit("success", "Solution validated ✓");
+
+        await kv.set(`agent-solution:${target.id}`, JSON.stringify(grid));
+        emit("log", `Solution saved — solver can now claim at /solve/${target.id}`);
 
         emit("log", "ZK proof generation delegated to human operator (computationally intensive — ~5min in serverless)");
         emit("success", `Solution complete ✓ — visit /solve/${target.id} to generate proof and claim the bounty`);

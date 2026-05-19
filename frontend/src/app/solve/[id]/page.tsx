@@ -21,13 +21,14 @@ export default function SolvePage() {
   const { isConnected } = useAccount();
   const client          = usePublicClient();
 
-  const [bounty,    setBounty]    = useState<BountyData | null>(null);
-  const [puzzle,    setPuzzle]    = useState<number[]>(Array(81).fill(0));
-  const [solution,  setSolution]  = useState<number[]>(Array(81).fill(0));
-  const [conflicts, setConflicts] = useState<Set<number>>(new Set());
-  const [stage,     setStage]     = useState<Stage>("idle");
-  const [errMsg,    setErrMsg]    = useState("");
+  const [bounty,      setBounty]      = useState<BountyData | null>(null);
+  const [puzzle,      setPuzzle]      = useState<number[]>(Array(81).fill(0));
+  const [solution,    setSolution]    = useState<number[]>(Array(81).fill(0));
+  const [conflicts,   setConflicts]   = useState<Set<number>>(new Set());
+  const [stage,       setStage]       = useState<Stage>("idle");
+  const [errMsg,      setErrMsg]      = useState("");
   const [bountyAmount, setBountyAmount] = useState("");
+  const [agentSolved, setAgentSolved] = useState(false);
 
   // Hint state
   const [hints,        setHints]        = useState<Record<number, number>>({});
@@ -61,6 +62,13 @@ export default function SolvePage() {
       const pArr = Array.from(p);
       setPuzzle(pArr);
       setSolution([...pArr]);
+
+      const res = await fetch(`/api/solutions/agent?bountyId=${id}`);
+      if (res.ok) {
+        const { solution } = await res.json();
+        setSolution(solution);
+        setAgentSolved(true);
+      }
     };
     load().catch(console.error);
   }, [client, id]);
@@ -201,6 +209,12 @@ export default function SolvePage() {
             </div>
             <div className="text-xs text-slate-500">prize pool</div>
           </div>
+        </div>
+      )}
+
+      {agentSolved && (
+        <div className="mb-6 p-4 rounded-xl border border-teal-500/30 bg-teal-500/10 text-teal-300 text-sm">
+          🤖 Agent solved this puzzle via Circle Nanopayments — grid auto-filled. Click Prove &amp; Claim to complete.
         </div>
       )}
 
