@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPublicClient, http, defineChain } from "viem";
+import { createPublicClient, http, defineChain, verifyTypedData } from "viem";
 import { Redis } from "@upstash/redis";
-import { BatchFacilitatorClient } from "@circle-fin/x402-batching/server";
 import {
   CIRCLE_BATCHING_NAME,
   CIRCLE_BATCHING_SCHEME,
@@ -31,8 +30,6 @@ const ARC_NETWORK       = "eip155:5042002";
 const ARC_USDC_ADDRESS  = "0x3600000000000000000000000000000000000000";
 const GATEWAY_VERIFYING = "0x0077777d7EBA4688BDeF3E311b846F25870A19B9";
 const HINT_AMOUNT       = "1000"; // 1000 micro-USDC = $0.001
-
-const facilitator = new BatchFacilitatorClient();
 
 function buildPaymentRequirements(sellerAddress: string) {
   return {
@@ -77,24 +74,64 @@ export async function GET(
       return NextResponse.json({ error: "Malformed payment-signature header" }, { status: 400 });
     }
 
-    const requirements = buildPaymentRequirements(sellerAddress);
+    const { payload, resource: _resource, accepted: _accepted } = paymentPayload as any;
+    const { authorization, signature } = payload ?? {};
+    const { from, to, value, validAfter, validBefore, nonce } = authorization ?? {};
 
-    const verifyResult = await facilitator.verify(paymentPayload, requirements);
-    if (!verifyResult.isValid) {
-      return NextResponse.json(
-        { error: "Payment verification failed", reason: verifyResult.invalidReason },
-        { status: 402 }
-      );
+    // Basic field checks
+    if (!signature || !from || !to || !value || !validBefore) {
+      return NextResponse.json({ error: "Malformed payment payload" }, { status: 402 });
+    }
+    if (to.toLowerCase() !== sellerAddress.toLowerCase()) {
+      return NextResponse.json({ error: "Wrong payment recipient" }, { status: 402 });
+    }
+    if (BigInt(value) < 1000n) {
+      return NextResponse.json({ error: "Payment amount too low" }, { status: 402 });
+    }
+    if (BigInt(validBefore) < BigInt(Math.floor(Date.now() / 1000))) {
+      return NextResponse.json({ error: "Payment authorization expired" }, { status: 402 });
     }
 
-    // Settle asynchronously — don't block the response
-    facilitator.settle(paymentPayload, requirements).catch(console.error);
+    // Verify EIP-712 signature
+    const recovered = await verifyTypedData({
+      address: from as `0x${string}`,
+      domain: {
+        name: "GatewayWalletBatched",
+        version: "1",
+        chainId: 5042002,
+        verifyingContract: "0x0077777d7EBA4688BDeF3E311b846F25870A19B9" as `0x${string}`,
+      },
+      types: {
+        TransferWithAuthorization: [
+          { name: "from", type: "address" },
+          { name: "to", type: "address" },
+          { name: "value", type: "uint256" },
+          { name: "validAfter", type: "uint256" },
+          { name: "validBefore", type: "uint256" },
+          { name: "nonce", type: "bytes32" },
+        ],
+      },
+      primaryType: "TransferWithAuthorization",
+      message: {
+        from: from as `0x${string}`,
+        to: to as `0x${string}`,
+        value: BigInt(value),
+        validAfter: BigInt(validAfter ?? 0),
+        validBefore: BigInt(validBefore),
+        nonce: nonce as `0x${string}`,
+      },
+      signature: signature as `0x${string}`,
+    });
 
-    const value = await resolveHint(params.bountyId, cellIdx);
-    if (value === null)
+    if (!recovered) {
+      return NextResponse.json({ error: "Invalid payment signature" }, { status: 402 });
+    }
+
+    const value2 = await resolveHint(params.bountyId, cellIdx);
+    if (value2 === null)
       return NextResponse.json({ error: "No solution stored for this bounty" }, { status: 404 });
 
-    return NextResponse.json({ value });
+    return NextResponse.json({ value: value2 });
   }
 
   // ── Path B: on-chain txHash payment ─────────────────────────────────────────

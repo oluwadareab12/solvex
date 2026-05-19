@@ -7,6 +7,7 @@ import { parseEther } from "viem";
 import { useRouter } from "next/navigation";
 import { SudokuGrid } from "@/components/SudokuGrid";
 import { BOUNTY_MARKET_ABI, CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { PUZZLE_LIBRARY, type PuzzleEntry } from "@/lib/puzzles";
 
 const EMPTY = Array(81).fill(0);
 const DIFF_LABELS: Record<number, string> = { 1: "Easy", 2: "Medium", 3: "Hard" };
@@ -32,6 +33,8 @@ export default function PostPage() {
   const [difficulty,   setDifficulty]   = useState<1 | 2 | 3>(1);
   const [error,        setError]        = useState("");
   const [submitted,    setSubmitted]    = useState(false);
+  const [showLibrary,  setShowLibrary]  = useState(false);
+  const [libTab,       setLibTab]       = useState<1 | 2 | 3>(1);
 
   const { writeContract, data: txHash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
@@ -136,7 +139,7 @@ export default function PostPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                   <p style={{ fontSize: "13px", fontWeight: 500, color: "#94a3b8", margin: 0 }}>Puzzle Clues</p>
                   <button
-                    onClick={loadTestPuzzle}
+                    onClick={() => setShowLibrary(true)}
                     style={{
                       fontSize: "10px", fontWeight: 600, padding: "2px 8px", borderRadius: "5px",
                       border: "0.5px solid rgba(129,140,248,0.3)", background: "transparent",
@@ -144,7 +147,7 @@ export default function PostPage() {
                       letterSpacing: "0.04em",
                     }}
                   >
-                    Load test puzzle
+                    📚 Puzzle Library
                   </button>
                 </div>
                 <span style={{
@@ -305,6 +308,97 @@ export default function PostPage() {
             >
               {isPending ? "Confirm in wallet…" : isConfirming ? "Posting…" : `Post with ${bountyEth} ETH bounty`}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Puzzle Library modal */}
+      {showLibrary && (
+        <div
+          onClick={() => setShowLibrary(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: "480px", background: "#0e1528",
+              border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: "12px",
+              padding: "24px", boxSizing: "border-box",
+            }}
+          >
+            {/* Modal header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <span style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", fontFamily: "var(--font-mono), monospace" }}>
+                Puzzle Library
+              </span>
+              <button
+                onClick={() => setShowLibrary(false)}
+                style={{ background: "transparent", border: "none", color: "#64748b", fontSize: "20px", cursor: "pointer", lineHeight: 1, padding: 0 }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+              {([1, 2, 3] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setLibTab(d)}
+                  style={{
+                    flex: 1, padding: "8px 0", borderRadius: "8px", fontSize: "13px", fontWeight: 600,
+                    cursor: "pointer", border: libTab === d ? "none" : "0.5px solid rgba(255,255,255,0.08)",
+                    background: libTab === d ? DIFF_COLORS[d] + "22" : "transparent",
+                    color: libTab === d ? DIFF_COLORS[d] : "#475569",
+                    outline: libTab === d ? `1px solid ${DIFF_COLORS[d]}44` : "none",
+                  }}
+                >
+                  {DIFF_LABELS[d]}
+                </button>
+              ))}
+            </div>
+
+            {/* Puzzle cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "340px", overflowY: "auto" }}>
+              {PUZZLE_LIBRARY.filter((p) => p.difficulty === libTab).map((entry: PuzzleEntry) => (
+                <button
+                  key={entry.id}
+                  onClick={() => {
+                    setPuzzle(entry.clues);
+                    setFullSolution(entry.solution);
+                    setTitle(entry.title);
+                    setDifficulty(entry.difficulty);
+                    setShowLibrary(false);
+                  }}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "flex-start",
+                    padding: "14px 16px", borderRadius: "10px", cursor: "pointer", textAlign: "left",
+                    background: "rgba(255,255,255,0.03)", border: "0.5px solid rgba(255,255,255,0.08)",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(99,102,241,0.12)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>{entry.title}</span>
+                    <span style={{
+                      fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "99px",
+                      background: DIFF_COLORS[entry.difficulty] + "22",
+                      color: DIFF_COLORS[entry.difficulty],
+                    }}>
+                      {DIFF_LABELS[entry.difficulty]}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "12px", color: "#475569" }}>
+                    {entry.nakedSinglesCount} cells auto-solved
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
