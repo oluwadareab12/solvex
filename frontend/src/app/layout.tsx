@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <a href="/post" style={{ fontSize: "13px", color: "#64748b", textDecoration: "none" }}>
                   Post Puzzle
                 </a>
+                <a href="/agent" style={{ fontSize: "13px", color: "#64748b", textDecoration: "none" }}>
+                  Agent
+                </a>
                 <div id="connect-btn" />
               </div>
             </div>
