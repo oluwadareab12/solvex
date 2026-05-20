@@ -44,7 +44,7 @@ export function BridgeModal({ isOpen, onClose }: Props) {
       publicClient.waitForTransactionReceipt.bind(publicClient)
     );
 
-    const kit = new BridgeKit();
+    const kit = new BridgeKit({ kitKey: process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY ?? "" });
 
     kit.on("*", (event: { name: string; data: unknown }) => {
       const d = event.data as Record<string, unknown> | null;
@@ -79,7 +79,8 @@ export function BridgeModal({ isOpen, onClose }: Props) {
       setStatus(result.state === "success" ? "done" : "error");
       if (result.state !== "success") setErrorMsg("Bridge did not complete successfully.");
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "Bridge failed");
+      console.error(e);
+      setErrorMsg("To bridge USDC to Arc, ensure your wallet is connected to the source chain (Base/ETH/OP Sepolia) and has USDC balance. Switch networks in MetaMask then try again.");
       setStatus("error");
     }
   };
