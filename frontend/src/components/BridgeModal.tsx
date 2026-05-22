@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAccount, useSendTransaction, usePublicClient } from "wagmi";
 import { BridgeKit, ArcTestnet, BaseSepolia, EthereumSepolia, OptimismSepolia } from "@circle-fin/bridge-kit";
-import { createWagmiAdapter } from "@/lib/bridgeAdapter";
+import { createWagmiAdapter, getLastBurnTxHash } from "@/lib/bridgeAdapter";
 
 const SOURCE_CHAINS = [
   { label: "Base Sepolia",     chain: BaseSepolia },
@@ -13,6 +13,7 @@ const SOURCE_CHAINS = [
 
 type BridgeStep = { name: string; state: string; txHash?: string; explorerUrl?: string };
 type Status = "idle" | "bridging" | "done" | "error";
+type RelayStatus = "idle" | "polling" | "relaying" | "done";
 
 interface Props {
   isOpen: boolean;
@@ -24,19 +25,57 @@ export function BridgeModal({ isOpen, onClose }: Props) {
   const { sendTransactionAsync } = useSendTransaction();
   const publicClient = usePublicClient();
 
-  const [sourceIdx, setSourceIdx] = useState(0);
-  const [amount,    setAmount]    = useState("10");
-  const [status,    setStatus]    = useState<Status>("idle");
-  const [steps,     setSteps]     = useState<BridgeStep[]>([]);
-  const [errorMsg,  setErrorMsg]  = useState("");
+  const [sourceIdx,    setSourceIdx]    = useState(0);
+  const [amount,       setAmount]       = useState("10");
+  const [status,       setStatus]       = useState<Status>("idle");
+  const [steps,        setSteps]        = useState<BridgeStep[]>([]);
+  const [errorMsg,     setErrorMsg]     = useState("");
+  const [relayStatus,  setRelayStatus]  = useState<RelayStatus>("idle");
 
   if (!isOpen) return null;
+
+  async function startRelay(burnTxHash: string) {
+    setRelayStatus("polling");
+    try {
+      for (let i = 0; i < 72; i++) {
+        console.log(`[BridgeModal] attestation poll ${i + 1}/72 for`, burnTxHash);
+        const resp = await fetch(
+          `https://iris-api-sandbox.circle.com/v2/messages/6?transactionHash=${burnTxHash}`
+        );
+        const data = await resp.json();
+        const msg = data.messages?.[0];
+        console.log("[BridgeModal] attestation status:", msg?.status);
+        if (msg?.status === "complete") {
+          setRelayStatus("relaying");
+          const relayResp = await fetch("/api/relay-mint", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg.message, attestation: msg.attestation }),
+          });
+          const result = await relayResp.json();
+          if (!relayResp.ok) throw new Error(result.error ?? "relay-mint failed");
+          console.log("[BridgeModal] relay-mint tx:", result.txHash);
+          setRelayStatus("done");
+          setStatus("done");
+          return;
+        }
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      throw new Error("Attestation timed out after 6 minutes");
+    } catch (e) {
+      console.error("[BridgeModal] relay error:", e);
+      setErrorMsg(e instanceof Error ? e.message : "Relay failed");
+      setRelayStatus("idle");
+      setStatus("error");
+    }
+  }
 
   const handleBridge = async () => {
     if (!address || !publicClient) return;
     setStatus("bridging");
     setSteps([]);
     setErrorMsg("");
+    setRelayStatus("idle");
 
     const adapter = createWagmiAdapter(
       address,
@@ -76,16 +115,34 @@ export function BridgeModal({ isOpen, onClose }: Props) {
       }));
 
       setSteps(finalSteps);
-      setStatus(result.state === "success" ? "done" : "error");
-      if (result.state !== "success") setErrorMsg("Bridge did not complete successfully.");
+
+      if (result.state === "success") {
+        setStatus("done");
+      } else {
+        // Bridge Kit returned non-success — check if burn went through
+        const burnTxHash = getLastBurnTxHash();
+        if (burnTxHash) {
+          await startRelay(burnTxHash);
+        } else {
+          setErrorMsg("Bridge did not complete successfully.");
+          setStatus("error");
+        }
+      }
     } catch (e) {
       console.error(e);
-      setErrorMsg("To bridge USDC to Arc, ensure your wallet is connected to the source chain (Base/ETH/OP Sepolia) and has USDC balance. Switch networks in MetaMask then try again.");
-      setStatus("error");
+      // If burn tx was sent, start relay fallback instead of showing error
+      const burnTxHash = getLastBurnTxHash();
+      if (burnTxHash) {
+        console.log("[BridgeModal] kit.bridge threw but burn tx exists, starting relay for", burnTxHash);
+        await startRelay(burnTxHash);
+      } else {
+        setErrorMsg("To bridge USDC to Arc, ensure your wallet is connected to the source chain (Base/ETH/OP Sepolia) and has USDC balance. Switch networks in MetaMask then try again.");
+        setStatus("error");
+      }
     }
   };
 
-  const busy = status === "bridging";
+  const busy = status === "bridging" || relayStatus === "polling" || relayStatus === "relaying";
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -209,6 +266,19 @@ export function BridgeModal({ isOpen, onClose }: Props) {
               </div>
             )}
 
+            {/* Relay status overlay */}
+            {relayStatus === "polling" && (
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "8px", background: "rgba(79,70,229,0.1)", border: "0.5px solid rgba(79,70,229,0.3)", color: "#818cf8", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⟳</span>
+                Waiting for Circle attestation… (checks every 5s)
+              </div>
+            )}
+            {relayStatus === "relaying" && (
+              <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "8px", background: "rgba(79,70,229,0.1)", border: "0.5px solid rgba(79,70,229,0.3)", color: "#818cf8", fontSize: "13px" }}>
+                Submitting relay transaction on Arc…
+              </div>
+            )}
+
             {/* Error */}
             {status === "error" && errorMsg && (
               <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "8px", background: "rgba(239,68,68,0.1)", border: "0.5px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: "13px" }}>
@@ -217,14 +287,14 @@ export function BridgeModal({ isOpen, onClose }: Props) {
             )}
 
             {/* Success */}
-            {status === "done" && (
+            {(status === "done" || relayStatus === "done") && (
               <div style={{ marginBottom: "16px", padding: "12px 14px", borderRadius: "8px", background: "rgba(20,184,166,0.1)", border: "0.5px solid rgba(20,184,166,0.3)", color: "#2dd4bf", fontSize: "13px", textAlign: "center", fontWeight: 600 }}>
-                Bridge complete — USDC arrived on Arc Testnet.
+                Bridge complete ✓ — USDC arrived on Arc Testnet.
               </div>
             )}
 
             {/* CTA */}
-            {status !== "done" && (
+            {status !== "done" && relayStatus !== "done" && (
               <button
                 onClick={handleBridge}
                 disabled={busy || !amount || Number(amount) <= 0}
@@ -235,7 +305,10 @@ export function BridgeModal({ isOpen, onClose }: Props) {
                   fontFamily: "var(--font-mono), monospace", letterSpacing: "0.05em",
                 }}
               >
-                {busy ? "Bridging…" : `Bridge ${amount} USDC → Arc`}
+                {relayStatus === "polling"  ? "Waiting for attestation…"
+                  : relayStatus === "relaying" ? "Relaying to Arc…"
+                  : busy                       ? "Bridging…"
+                  : `Bridge ${amount} USDC → Arc`}
               </button>
             )}
           </>
